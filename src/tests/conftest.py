@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import pytest
+import requests
 
-from src.api import app
+
+BASE_URL = "http://127.0.0.1:5000"
 
 
 @pytest.fixture()
 def client():
-    app.config["TESTING"] = True
+    session = requests.Session()
 
-    with app.test_client() as client:
-        yield client
+    yield session
+
+    session.close()
