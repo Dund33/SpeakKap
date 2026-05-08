@@ -1,0 +1,6 @@
+flask 
+pyjwt 
+werkzeug
+redis
+bcrypt
+numpy

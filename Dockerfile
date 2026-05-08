@@ -20,4 +20,4 @@ WORKDIR /app/models
 RUN wget https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet293-LM/resolve/main/voxceleb_resnet293_LM.onnx?download=true
 WORKDIR /app
 
-CMD [ "python", "run.py" ]
+CMD [ "python", "api.py" ]
