@@ -6,33 +6,20 @@ import redis
 
 from src.models.SpeakerProfile import SpeakerProfile
 
-from redis.commands.search.field import (
-    TextField,
-    VectorField
-)
+from redis.commands.search.field import TextField, VectorField
 
-from redis.commands.search.index_definition import (
-    IndexDefinition,
-    IndexType
-)
+from redis.commands.search.index_definition import IndexDefinition, IndexType
 
 from redis.commands.search.query import Query
 from redis.exceptions import ResponseError
 
 
 class RedisStoreService:
-
     def __init__(
-        self,
-        redis_url: str,
-        embedding_dim: int = 512,
-        index_name: str = "speaker_idx"
+        self, redis_url: str, embedding_dim: int = 512, index_name: str = "speaker_idx"
     ):
 
-        self.redis = redis.Redis.from_url(
-            redis_url,
-            decode_responses=False
-        )
+        self.redis = redis.Redis.from_url(redis_url, decode_responses=False)
 
         self.embedding_dim = embedding_dim
         self.index_name = index_name
@@ -41,124 +28,77 @@ class RedisStoreService:
         return f"speaker:{login}"
 
     @staticmethod
-    def _to_bytes(
-        embedding: np.ndarray
-    ) -> bytes:
+    def _to_bytes(embedding: np.ndarray) -> bytes:
 
-        return np.asarray(
-            embedding,
-            dtype=np.float32
-        ).tobytes()
+        return np.asarray(embedding, dtype=np.float32).tobytes()
 
     @staticmethod
-    def _from_bytes(
-        payload: bytes
-    ) -> np.ndarray:
+    def _from_bytes(payload: bytes) -> np.ndarray:
 
-        return np.frombuffer(
-            payload,
-            dtype=np.float32
-        )
+        return np.frombuffer(payload, dtype=np.float32)
 
     def ensure_index(self):
 
         schema = (
             TextField("login"),
             TextField("password_hash"),
-
             VectorField(
                 "embedding",
                 "HNSW",
                 {
                     "TYPE": "FLOAT32",
                     "DIM": self.embedding_dim,
-                    "DISTANCE_METRIC": "COSINE"
-                }
-            )
+                    "DISTANCE_METRIC": "COSINE",
+                },
+            ),
         )
 
         try:
-
-            self.redis.ft(
-                self.index_name
-            ).create_index(
+            self.redis.ft(self.index_name).create_index(
                 schema,
                 definition=IndexDefinition(
-                    prefix=["speaker:"],
-                    index_type=IndexType.HASH
-                )
+                    prefix=["speaker:"], index_type=IndexType.HASH
+                ),
             )
 
         except ResponseError as e:
-
             if "Index already exists" not in str(e):
                 raise
 
-    def get_profile(
-        self,
-        login: str
-    ) -> SpeakerProfile | None:
+    def get_profile(self, login: str) -> SpeakerProfile | None:
 
-        data = self.redis.hgetall(
-            self._key(login)
-        )
+        data = self.redis.hgetall(self._key(login))
 
         if not data:
             return None
 
         return SpeakerProfile(
             login=data[b"login"].decode(),
-            password_hash=data[
-                b"password_hash"
-            ].decode(),
-            embedding=self._from_bytes(
-                data[b"embedding"]
-            )
+            password_hash=data[b"password_hash"].decode(),
+            embedding=self._from_bytes(data[b"embedding"]),
         )
 
-    def create_profile(
-        self,
-        login: str,
-        password: str,
-        embedding: np.ndarray
-    ):
+    def create_profile(self, login: str, password: str, embedding: np.ndarray):
 
-        password_hash = bcrypt.hashpw(
-            password.encode(),
-            bcrypt.gensalt()
-        ).decode()
+        password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
         self.redis.hset(
             self._key(login),
             mapping={
                 "login": login,
                 "password_hash": password_hash,
-                "embedding": self._to_bytes(
-                    embedding
-                )
-            }
+                "embedding": self._to_bytes(embedding),
+            },
         )
 
-    def find_similar_speakers(
-        self,
-        embedding: np.ndarray,
-        top_k: int = 1
-    ):
+    def find_similar_speakers(self, embedding: np.ndarray, top_k: int = 1):
 
-        query = Query(
-            f"*=>[KNN {top_k} "
-            f"@embedding $vec AS score]"
-        ).return_field(
-            "score"
-        ).dialect(2)
+        query = (
+            Query(f"*=>[KNN {top_k} @embedding $vec AS score]")
+            .return_field("score")
+            .dialect(2)
+        )
 
-        return self.redis.ft(
-            self.index_name
-        ).search(
-            query,
-            query_params={
-                "vec": self._to_bytes(
-                    embedding
-                )
-            }
+        return self.redis.ft(self.index_name).search(
+            query, query_params={"vec": self._to_bytes(embedding)}
         )

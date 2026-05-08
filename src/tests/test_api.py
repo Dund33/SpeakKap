@@ -8,21 +8,8 @@ SAMPLES_DIR = Path("samples")
 def test_register(client):
 
     files = [
-        (
-            open(
-                SAMPLES_DIR / "voice1.wav",
-                "rb"
-            ),
-            "voice1.wav"
-        ),
-
-        (
-            open(
-                SAMPLES_DIR / "voice2.wav",
-                "rb"
-            ),
-            "voice2.wav"
-        ),
+        (open(SAMPLES_DIR / "voice1.wav", "rb"), "voice1.wav"),
+        (open(SAMPLES_DIR / "voice2.wav", "rb"), "voice2.wav"),
     ]
 
     data = {
@@ -46,19 +33,10 @@ def test_register(client):
 
 def test_identify(client):
 
-    with open(
-        SAMPLES_DIR / "test.wav",
-        "rb"
-    ) as audio:
-
+    with open(SAMPLES_DIR / "test.wav", "rb") as audio:
         response = client.post(
             "/identify",
-            data={
-                "file": (
-                    audio,
-                    "test.wav"
-                )
-            },
+            data={"file": (audio, "test.wav")},
             content_type="multipart/form-data",
         )
 
@@ -75,21 +53,14 @@ def test_identify(client):
 
 def test_authenticate_success(client):
 
-    with open(
-        SAMPLES_DIR / "test.wav",
-        "rb"
-    ) as audio:
-
+    with open(SAMPLES_DIR / "test.wav", "rb") as audio:
         response = client.post(
             "/authenticate",
             data={
                 "login": "pytest_user",
                 "password": "secret123",
                 "threshold": 0.5,
-                "file": (
-                    audio,
-                    "test.wav"
-                ),
+                "file": (audio, "test.wav"),
             },
             content_type="multipart/form-data",
         )
@@ -103,21 +74,14 @@ def test_authenticate_success(client):
 
 def test_authenticate_invalid_password(client):
 
-    with open(
-        SAMPLES_DIR / "test.wav",
-        "rb"
-    ) as audio:
-
+    with open(SAMPLES_DIR / "test.wav", "rb") as audio:
         response = client.post(
             "/authenticate",
             data={
                 "login": "pytest_user",
                 "password": "wrong_password",
                 "threshold": 0.5,
-                "file": (
-                    audio,
-                    "test.wav"
-                ),
+                "file": (audio, "test.wav"),
             },
             content_type="multipart/form-data",
         )
