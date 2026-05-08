@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from http.client import responses
 from pathlib import Path
 
 SAMPLES_DIR = Path("data")
 
 MAX_FRR = 0.15
 
+
 def test_register(client, data_partitions):
 
-    joor_files = data_partitions['joor_register']
+    joor_files = data_partitions["joor_register"]
 
     files = [
-        ("files", (filepath.name, open(filepath, "rb"), "audio/wav")) for filepath in joor_files
+        ("files", (filepath.name, open(filepath, "rb"), "audio/wav"))
+        for filepath in joor_files
     ]
 
     data = {
@@ -26,18 +27,18 @@ def test_register(client, data_partitions):
         files=files,
     )
 
-    #Response should be either 201 Created (if registration is successful) or 409 Conflict (if user already exists)
+    # Response should be either 201 Created (if registration is successful) or 409 Conflict (if user already exists)
     assert response.status_code in [201, 409]
 
     json_data = response.json()
 
-    #Response should contain valid JSON data
+    # Response should contain valid JSON data
     assert json_data is not None
 
 
 def test_identify(client, data_partitions):
 
-    joor_files = data_partitions['joor_login']
+    joor_files = data_partitions["joor_login"]
 
     responses = []
 
@@ -48,15 +49,15 @@ def test_identify(client, data_partitions):
                 files={
                     "file": (joor_file.name, audio, "audio/wav"),
                 },
-        )
+            )
         responses.append(response)
 
-    #Responses should be 200 OK
+    # Responses should be 200 OK
     auth_statuses = (response.status_code == 200 for response in responses)
     successes = sum(auth_statuses)
     assert successes / len(responses) >= (1 - MAX_FRR)
 
-    #All responses should contain valid JSON data
+    # All responses should contain valid JSON data
     assert all(map(lambda r: r.json() is not None, responses))
 
     for response in responses:
@@ -68,7 +69,7 @@ def test_identify(client, data_partitions):
 
 def test_authenticate_success(client, data_partitions):
 
-    joor_files = data_partitions['joor_login']
+    joor_files = data_partitions["joor_login"]
 
     responses = []
 
@@ -87,18 +88,18 @@ def test_authenticate_success(client, data_partitions):
             )
         responses.append(response)
 
-    #All responses should be 200 OK
+    # All responses should be 200 OK
     auth_statuses = (response.status_code == 200 for response in responses)
     successes = sum(auth_statuses)
     assert successes / len(responses) >= (1 - MAX_FRR)
 
-    #All responses should contain valid JSON data
+    # All responses should contain valid JSON data
     assert all(map(lambda r: r.json() is not None, responses))
 
 
 def test_authenticate_invalid_password(client, data_partitions):
 
-    joor_files = data_partitions['joor_login']
+    joor_files = data_partitions["joor_login"]
 
     responses = []
 
@@ -117,8 +118,8 @@ def test_authenticate_invalid_password(client, data_partitions):
             )
         responses.append(response)
 
-    #All responses should be either 401 Unauthorized or 404 Not Found, since the password is wrong
+    # All responses should be either 401 Unauthorized or 404 Not Found, since the password is wrong
     assert all(response.status_code in [401, 404] for response in responses)
 
-    #All responses should contain valid JSON data, even if the authentication fails
+    # All responses should contain valid JSON data, even if the authentication fails
     assert all(map(lambda r: r.json() is not None, responses))

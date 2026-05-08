@@ -16,6 +16,7 @@ def client():
 
     session.close()
 
+
 @pytest.fixture(scope="session", autouse=True)
 def data_partitions():
     joor_files = list(SAMPLES_DIR.glob("joor*.wav"))
