@@ -12,12 +12,13 @@ RUN pip install --no-cache-dir git+https://github.com/wenet-e2e/wespeaker.git
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the code
-COPY src/* .
-
 # Model download
 WORKDIR /app/models
-RUN wget https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet293-LM/resolve/main/voxceleb_resnet293_LM.onnx?download=true
+RUN wget -O voxceleb_resnet293_LM.onnx \
+    "https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet293-LM/resolve/main/voxceleb_resnet293_LM.onnx?download=true"
 WORKDIR /app
 
-CMD [ "python", "run.py" ]
+# Copy the code
+COPY src/ .
+
+CMD [ "python", "api.py" ]
