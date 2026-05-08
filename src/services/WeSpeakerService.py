@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import onnxruntime as ort
 import torchaudio
+import torchaudio.compliance.kaldi as kaldi
 
 
 class WeSpeakerService:
@@ -12,7 +13,9 @@ class WeSpeakerService:
         device: str = "cpu",
     ):
         providers = (
-            ["CUDAExecutionProvider"] if device == "cuda" else ["CPUExecutionProvider"]
+            ["CUDAExecutionProvider"]
+            if device == "cuda"
+            else ["CPUExecutionProvider"]
         )
 
         self.session = ort.InferenceSession(
@@ -29,7 +32,7 @@ class WeSpeakerService:
         if waveform.shape[0] > 1:
             waveform = waveform.mean(dim=0, keepdim=True)
 
-        # Resample to 16kHz
+        # Resample to 16 kHz
         if sample_rate != 16000:
             resampler = torchaudio.transforms.Resample(
                 orig_freq=sample_rate,
@@ -37,14 +40,29 @@ class WeSpeakerService:
             )
             waveform = resampler(waveform)
 
-        audio = waveform.squeeze(0).numpy()
+        # Extract 80-dimensional FBANK features
+        feats = kaldi.fbank(
+            waveform,
+            num_mel_bins=80,
+            frame_length=25,
+            frame_shift=10,
+            dither=0.0,
+            sample_frequency=16000,
+            use_energy=False,
+        )
 
-        # Shape: [1, T]
-        audio = np.expand_dims(audio, axis=0).astype(np.float32)
+        # Mean normalization
+        feats = feats - feats.mean(dim=0, keepdim=True)
 
+        # Convert to NumPy and add batch dimension
+        feats = feats.numpy().astype(np.float32)
+        feats = np.expand_dims(feats, axis=0)  # [1, frames, 80]
+
+        # Run inference
         embedding = self.session.run(
             None,
-            {self.input_name: audio},
+            {self.input_name: feats},
         )[0]
 
+        # Remove batch dimension
         return np.asarray(embedding[0], dtype=np.float32)

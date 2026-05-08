@@ -5,8 +5,7 @@ import os
 import uuid
 
 from flask import Flask, jsonify, request
-from werkzeug.security import check_password_hash
-from werkzeug.utils import secure_filename
+import bcrypt
 
 from src.utils.config import Config
 
@@ -64,9 +63,7 @@ def register():
         if not file or not file.filename:
             continue
 
-        filename = secure_filename(file.filename)
-
-        filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}_{filename}")
+        filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.wav")
 
         file.save(filepath)
 
@@ -89,9 +86,7 @@ def identify():
     if not file or not file.filename:
         return jsonify({"error": "audio file required"}), 400
 
-    filename = secure_filename(file.filename)
-
-    filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}_{filename}")
+    filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.wav")
 
     file.save(filepath)
 
@@ -135,12 +130,13 @@ def authenticate():
     if profile is None:
         return jsonify({"error": "user not found"}), 404
 
-    if not check_password_hash(profile.password_hash, password):
+    if not bcrypt.checkpw(
+        password.encode(),
+        profile.password_hash.encode(),
+    ):
         return jsonify({"error": "invalid credentials"}), 401
 
-    filename = secure_filename(file.filename)
-
-    filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}_{filename}")
+    filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.wav")
 
     file.save(filepath)
 
@@ -166,6 +162,9 @@ def authenticate():
         }
     )
 
+@app.route("/ping")
+def ping():
+    return {"ok": True}
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

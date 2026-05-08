@@ -3,7 +3,7 @@ version: "3.9"
 services:
 
   api:
-    image: dund33/speak-kap:dev
+    image: dund33/speak-kap:latest
 
     container_name: speak-kap-api
 
@@ -11,10 +11,11 @@ services:
       - "5000:5000"
 
     environment:
+      PYTHONPATH: /app
       REDIS_URL: redis://redis:6379/0
       WESPEAKER_DEVICE: cpu
-      EMBEDDING_DIM: 512
-      UPLOAD_FOLDER: uploads
+      EMBEDDING_DIM: "512"
+      UPLOAD_FOLDER: /app/uploads
 
     depends_on:
       - redis
