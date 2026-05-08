@@ -11,7 +11,7 @@ from redis.commands.search.field import (
     VectorField
 )
 
-from redis.commands.search.indexDefinition import (
+from redis.commands.search.index_definition import (
     IndexDefinition,
     IndexType
 )
