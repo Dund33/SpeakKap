@@ -1,39 +1,70 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-
 import numpy as np
-import wespeaker
+import onnxruntime as ort
+import torchaudio
 
 
-@dataclass
 class WeSpeakerService:
-    """Small wrapper around the official WeSpeaker model API."""
 
-    language: str = "english"
-    device: str = "cpu"
+    def __init__(
+        self,
+        model_path: str = "models/voxceleb_resnet293_LM.onnx"
+    ):
 
-    def __post_init__(self) -> None:
-        """Load the model once and keep it in memory for reuse."""
-        self.model = wespeaker.load_model(self.language)
-        self.model.set_device(self.device)
+        self.session = ort.InferenceSession(
+            model_path,
+            providers=["CPUExecutionProvider"]
+        )
 
-    def get_embedding(self, audio_path: str | Path) -> np.ndarray:
-        """Extract a speaker embedding from an audio file."""
-        embedding = self.model.extract_embedding(str(audio_path))
-        return np.asarray(embedding)
+        self.input_name = (
+            self.session
+            .get_inputs()[0]
+            .name
+        )
 
-    def get_similarity(self, audio_path_1: str | Path, audio_path_2: str | Path) -> float:
-        """Compute similarity between two audio files."""
-        similarity = self.model.compute_similarity(str(audio_path_1), str(audio_path_2))
-        return float(similarity)
+    def get_embedding(
+        self,
+        audio_path: str
+    ) -> np.ndarray:
 
-    def register_speaker(self, speaker_name: str, audio_path: str | Path) -> None:
-        """Register one reference recording for a speaker."""
-        self.model.register(speaker_name, str(audio_path))
+        waveform, sample_rate = torchaudio.load(
+            audio_path
+        )
 
-    def recognize_speaker(self, audio_path: str | Path) -> Any:
-        """Recognize a speaker using the registered speaker set."""
-        return self.model.recognize(str(audio_path))
+        # Convert to mono
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(
+                dim=0,
+                keepdim=True
+            )
+
+        # Resample to 16kHz
+        if sample_rate != 16000:
+
+            resampler = torchaudio.transforms.Resample(
+                orig_freq=sample_rate,
+                new_freq=16000
+            )
+
+            waveform = resampler(waveform)
+
+        audio = waveform.squeeze(0).numpy()
+
+        # Shape: [1, T]
+        audio = np.expand_dims(
+            audio,
+            axis=0
+        ).astype(np.float32)
+
+        embedding = self.session.run(
+            None,
+            {
+                self.input_name: audio
+            }
+        )[0]
+
+        return np.asarray(
+            embedding[0],
+            dtype=np.float32
+        )

@@ -4,3 +4,4 @@ werkzeug
 redis
 bcrypt
 numpy
+onnxruntime
