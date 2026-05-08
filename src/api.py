@@ -8,13 +8,15 @@ from flask import Flask, jsonify, request
 from werkzeug.security import check_password_hash
 from werkzeug.utils import secure_filename
 
+from utils.config import Config
+
 from services.RedisStoreService import RedisStoreService
 from services.WeSpeakerService import WeSpeakerService
 from utils.MathUtils import MathUtils
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = Config.UPLOAD_FOLDER
 
 os.makedirs(
     UPLOAD_FOLDER,
@@ -22,21 +24,14 @@ os.makedirs(
 )
 
 redis_store_service = RedisStoreService(
-    redis_url=os.getenv(
-        "REDIS_URL",
-        "redis://localhost:6379/0"
-    ),
-    embedding_dim=512
+    redis_url=Config.REDIS_URL,
+    embedding_dim=Config.EMBEDDING_DIM
 )
 
 redis_store_service.ensure_index()
 
 wespeaker_service = WeSpeakerService(
-    language="english",
-    device=os.getenv(
-        "WESPEAKER_DEVICE",
-        "cpu"
-    )
+    device=Config.WESPEAKER_DEVICE
 )
 
 
