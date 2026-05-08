@@ -1,0 +1,87 @@
+name: Python Code Cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install cleanup tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            black \
+            isort \
+            autoflake \
+            pyupgrade \
+            docformatter
+
+      - name: Run autoflake
+        run: |
+          autoflake \
+            --remove-all-unused-imports \
+            --remove-unused-variables \
+            --remove-duplicate-keys \
+            --recursive \
+            --in-place \
+            .
+
+      - name: Run pyupgrade
+        run: |
+          find . -name "*.py" -print0 | \
+          xargs -0 pyupgrade --py314-plus
+
+      - name: Run isort
+        run: |
+          isort .
+
+      - name: Run black
+        run: |
+          black .
+
+      - name: Run docformatter
+        run: |
+          docformatter \
+            --in-place \
+            --recursive \
+            .
+
+      - name: Amend existing commit
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+
+            AUTHOR_NAME="$(git log -1 --pretty=format:'%an')"
+            AUTHOR_EMAIL="$(git log -1 --pretty=format:'%ae')"
+
+            git config user.name "$AUTHOR_NAME"
+            git config user.email "$AUTHOR_EMAIL"
+
+            git add .
+
+            git commit --amend --no-edit --reset-author=false
+
+            git push --force-with-lease
+          else
+            echo "No changes detected"
+          fi
