@@ -14,7 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Model download
 WORKDIR /app/models
-RUN wget https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet293-LM/resolve/main/voxceleb_resnet293_LM.onnx?download=true
+RUN wget -O voxceleb_resnet293_LM.onnx \
+    "https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet293-LM/resolve/main/voxceleb_resnet293_LM.onnx?download=true"
 WORKDIR /app
 
 # Copy the code
