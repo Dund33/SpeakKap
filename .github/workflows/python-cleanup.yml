@@ -10,9 +10,7 @@ on:
 
 jobs:
   cleanup:
-    # Prevent infinite loops from workflow-created commits
     if: github.actor != 'github-actions[bot]'
-
     runs-on: ubuntu-latest
 
     permissions:
@@ -23,50 +21,34 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.13"
 
-      - name: Install cleanup tools
+      - name: Install tools
         run: |
           python -m pip install --upgrade pip
-          pip install \
-            black \
-            isort \
-            autoflake \
-            pyupgrade \
-            docformatter
+          pip install ruff docformatter
 
-      - name: Run autoflake
+      - name: Run Ruff auto-fixes
+        run: ruff check . --fix
+
+      - name: Run Ruff formatter
+        run: ruff format .
+
+      - name: Run docformatter
         run: |
-          autoflake \
-            --remove-all-unused-imports \
-            --remove-unused-variables \
-            --remove-duplicate-keys \
-            --recursive \
+          docformatter \
             --in-place \
+            --recursive \
             .
 
-      - name: Run pyupgrade
-        run: |
-          find . -name "*.py" -print0 | \
-          xargs -0 pyupgrade --py314-plus
-
-      - name: Run isort
-        run: |
-          isort .
-
-      - name: Run black
-        run: |
-          black .
-
       - name: Commit cleanup changes
+        if: github.event_name == 'push'
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
-
             AUTHOR_NAME="$(git log -1 --pretty=format:'%an')"
             AUTHOR_EMAIL="$(git log -1 --pretty=format:'%ae')"
 
@@ -74,9 +56,7 @@ jobs:
             git config user.email "$AUTHOR_EMAIL"
 
             git add .
-
             git commit -m "style: automated Python cleanup"
-
             git push
           else
             echo "No changes detected"
