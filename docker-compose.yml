@@ -3,7 +3,7 @@ version: "3.9"
 services:
 
   api:
-    image: dund33/speak-kap-dev:latest
+    image: dund33/speak-kap:dev
 
     container_name: speak-kap-api
 
