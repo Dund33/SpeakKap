@@ -8,11 +8,11 @@ from flask import Flask, jsonify, request
 from werkzeug.security import check_password_hash
 from werkzeug.utils import secure_filename
 
-from utils.config import Config
+from src.utils.config import Config
 
-from services.RedisStoreService import RedisStoreService
-from services.WeSpeakerService import WeSpeakerService
-from utils.MathUtils import MathUtils
+from src.services.RedisStoreService import RedisStoreService
+from src.services.WeSpeakerService import WeSpeakerService
+from src.utils.MathUtils import MathUtils
 
 app = Flask(__name__)
 
