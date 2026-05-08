@@ -4,7 +4,7 @@ import bcrypt
 import numpy as np
 import redis
 
-from models.SpeakerProfile import SpeakerProfile
+from src.models.SpeakerProfile import SpeakerProfile
 
 from redis.commands.search.field import (
     TextField,
