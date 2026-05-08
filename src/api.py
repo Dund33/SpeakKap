@@ -1,256 +1,331 @@
-from flask import Flask, request, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-import jwt
-import datetime
-from functools import wraps
-import uuid
+from __future__ import annotations
+
+import hashlib
 import os
+import uuid
+
+from flask import Flask, jsonify, request
+from werkzeug.security import check_password_hash
+from werkzeug.utils import secure_filename
+
+from services.RedisStoreService import RedisStoreService
+from services.WeSpeakerService import WeSpeakerService
+from utils.MathUtils import MathUtils
 
 app = Flask(__name__)
 
-# =========================================
-# KONFIGURACJA
-# =========================================
+UPLOAD_FOLDER = "uploads"
 
-app.config['SECRET_KEY'] = 'SUPER_SECRET_KEY'
+os.makedirs(
+    UPLOAD_FOLDER,
+    exist_ok=True
+)
 
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+redis_store_service = RedisStoreService(
+    redis_url=os.getenv(
+        "REDIS_URL",
+        "redis://localhost:6379/0"
+    ),
+    embedding_dim=512
+)
 
-# Prosta baza danych w pamięci
-users = []
+redis_store_service.ensure_index()
 
-
-# =========================================
-# MIDDLEWARE AUTORYZACJI
-# =========================================
-
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-
-        token = None
-
-        auth_header = request.headers.get('Authorization')
-
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(" ")[1]
-
-        if not token:
-            return jsonify({
-                'error': 'Brak tokenu'
-            }), 401
-
-        try:
-            data = jwt.decode(
-                token,
-                app.config['SECRET_KEY'],
-                algorithms=["HS256"]
-            )
-
-            current_user = next(
-                (u for u in users if u['id'] == data['user_id']),
-                None
-            )
-
-            if current_user is None:
-                return jsonify({
-                    'error': 'Użytkownik nie istnieje'
-                }), 401
-
-        except jwt.ExpiredSignatureError:
-            return jsonify({
-                'error': 'Token wygasł'
-            }), 401
-
-        except jwt.InvalidTokenError:
-            return jsonify({
-                'error': 'Nieprawidłowy token'
-            }), 401
-
-        return f(current_user, *args, **kwargs)
-
-    return decorated
+wespeaker_service = WeSpeakerService(
+    language="english",
+    device=os.getenv(
+        "WESPEAKER_DEVICE",
+        "cpu"
+    )
+)
 
 
-# =========================================
-# REGISTER
-# Przyjmuje:
-# - username
-# - password
-# - lista plików
-# =========================================
+def xor_hash(
+    login: str,
+    password_hash: str
+) -> str:
 
-@app.route('/register', methods=['POST'])
-def register():
+    login_hash = hashlib.sha256(
+        login.encode()
+    ).digest()
 
-    username = request.form.get('username')
-    password = request.form.get('password')
+    password_hash_digest = hashlib.sha256(
+        password_hash.encode()
+    ).digest()
 
-    if not username or not password:
-        return jsonify({
-            'error': 'Username i password są wymagane'
-        }), 400
-
-    existing_user = next(
-        (u for u in users if u['username'] == username),
-        None
+    xor_bytes = bytes(
+        a ^ b
+        for a, b in zip(
+            login_hash,
+            password_hash_digest
+        )
     )
 
-    if existing_user:
+    return xor_bytes.hex()
+
+
+@app.post("/register")
+def register():
+
+    login = request.form.get(
+        "username"
+    )
+
+    password = request.form.get(
+        "password"
+    )
+
+    files = request.files.getlist(
+        "files"
+    )
+
+    if not login or not password:
         return jsonify({
-            'error': 'Użytkownik już istnieje'
+            "error":
+            "username and password required"
+        }), 400
+
+    if redis_store_service.get_profile(
+        login
+    ):
+        return jsonify({
+            "error":
+            "user already exists"
         }), 409
 
-    # Lista plików
-    uploaded_files = request.files.getlist('files')
+    if not files:
+        return jsonify({
+            "error":
+            "at least one file required"
+        }), 400
 
-    saved_files = []
+    embeddings = []
 
-    for file in uploaded_files:
+    for file in files:
 
-        if file.filename == '':
+        if not file or not file.filename:
             continue
 
-        filename = secure_filename(file.filename)
-
-        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filename = secure_filename(
+            file.filename
+        )
 
         filepath = os.path.join(
             UPLOAD_FOLDER,
-            unique_filename
+            f"{uuid.uuid4()}_{filename}"
         )
 
         file.save(filepath)
 
-        saved_files.append(filepath)
+        embedding = (
+            wespeaker_service.get_embedding(
+                filepath
+            )
+        )
 
-    hashed_password = generate_password_hash(password)
+        embeddings.append(
+            embedding
+        )
 
-    user = {
-        'id': str(uuid.uuid4()),
-        'username': username,
-        'password': hashed_password,
-        'files': saved_files
-    }
+    medoid = MathUtils.get_medoid(
+        embeddings
+    )
 
-    users.append(user)
+    redis_store_service.create_profile(
+        login=login,
+        password=password,
+        embedding=medoid
+    )
 
     return jsonify({
-        'message': 'Użytkownik zarejestrowany',
-        'user_id': user['id'],
-        'uploaded_files': saved_files
+        "message":
+        "registered",
+        "login":
+        login
     }), 201
 
 
-# =========================================
-# IDENTIFY
-# Przyjmuje:
-# - username
-# - password
-# - jeden plik
-# =========================================
-
-@app.route('/identify', methods=['POST'])
+@app.post("/identify")
 def identify():
 
-    username = request.form.get('username')
-    password = request.form.get('password')
-
-    uploaded_file = request.files.get('file')
-
-    if uploaded_file is None:
-        return jsonify({
-            'error': 'Plik jest wymagany'
-        }), 400
-
-    user = next(
-        (u for u in users if u['username'] == username),
-        None
+    file = request.files.get(
+        "file"
     )
 
-    if not user:
+    if not file or not file.filename:
         return jsonify({
-            'error': 'Nieprawidłowy login lub hasło'
-        }), 401
+            "error":
+            "audio file required"
+        }), 400
 
-    if not check_password_hash(user['password'], password):
-        return jsonify({
-            'error': 'Nieprawidłowy login lub hasło'
-        }), 401
-
-    # Zapis pliku
-    filename = secure_filename(uploaded_file.filename)
-
-    unique_filename = f"{uuid.uuid4()}_{filename}"
+    filename = secure_filename(
+        file.filename
+    )
 
     filepath = os.path.join(
         UPLOAD_FOLDER,
-        unique_filename
+        f"{uuid.uuid4()}_{filename}"
     )
 
-    uploaded_file.save(filepath)
+    file.save(filepath)
 
-    # JWT
-    token = jwt.encode({
-        'user_id': user['id'],
-        'username': user['username'],
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    },
-        app.config['SECRET_KEY'],
-        algorithm="HS256"
+    embedding = (
+        wespeaker_service.get_embedding(
+            filepath
+        )
+    )
+
+    result = (
+        redis_store_service
+        .find_similar_speakers(
+            embedding,
+            top_k=1
+        )
+    )
+
+    if len(result.docs) == 0:
+        return jsonify({
+            "error":
+            "no matching user"
+        }), 404
+
+    doc = result.docs[0]
+
+    doc_id = (
+        doc.id.decode()
+        if isinstance(
+            doc.id,
+            (bytes, bytearray)
+        )
+        else str(doc.id)
+    )
+
+    login = doc_id.replace(
+        "speaker:",
+        ""
+    )
+
+    profile = (
+        redis_store_service
+        .get_profile(login)
     )
 
     return jsonify({
-        'message': 'Logowanie poprawne',
-        'token': token,
-        'uploaded_file': filepath
+        "login":
+        login,
+
+        "xor_hash":
+        xor_hash(
+            login,
+            profile.password_hash
+        )
     })
 
 
-# =========================================
-# AUTHENTICATE / AUTHORIZE
-# Przyjmuje:
-# - JWT
-# - jeden plik
-# =========================================
+@app.post("/authenticate")
+def authenticate():
 
-@app.route('/authenticate', methods=['POST'])
-@token_required
-def authenticate(current_user):
+    login = request.form.get(
+        "login"
+    )
 
-    uploaded_file = request.files.get('file')
+    password = request.form.get(
+        "password"
+    )
 
-    if uploaded_file is None:
+    file = request.files.get(
+        "file"
+    )
+
+    threshold = float(
+        request.form.get(
+            "threshold",
+            0.25
+        )
+    )
+
+    if not login or not password:
         return jsonify({
-            'error': 'Plik jest wymagany'
+            "error":
+            "login and password required"
         }), 400
 
-    filename = secure_filename(uploaded_file.filename)
+    if not file or not file.filename:
+        return jsonify({
+            "error":
+            "audio file required"
+        }), 400
 
-    unique_filename = f"{uuid.uuid4()}_{filename}"
+    profile = (
+        redis_store_service
+        .get_profile(login)
+    )
+
+    if profile is None:
+        return jsonify({
+            "error":
+            "user not found"
+        }), 404
+
+    if not check_password_hash(
+        profile.password_hash,
+        password
+    ):
+        return jsonify({
+            "error":
+            "invalid credentials"
+        }), 401
+
+    filename = secure_filename(
+        file.filename
+    )
 
     filepath = os.path.join(
         UPLOAD_FOLDER,
-        unique_filename
+        f"{uuid.uuid4()}_{filename}"
     )
 
-    uploaded_file.save(filepath)
+    file.save(filepath)
+
+    current_embedding = (
+        wespeaker_service.get_embedding(
+            filepath
+        )
+    )
+
+    distance = (
+        MathUtils.cosine_distance(
+            current_embedding,
+            profile.embedding
+        )
+    )
+
+    if distance > threshold:
+        return jsonify({
+            "error":
+            "authentication failed",
+
+            "distance":
+            float(distance),
+
+            "threshold":
+            threshold
+        }), 401
 
     return jsonify({
-        'message': 'Autoryzacja poprawna',
-        'user': {
-            'id': current_user['id'],
-            'username': current_user['username']
-        },
-        'uploaded_file': filepath
+        "message":
+        "authentication successful",
+
+        "login":
+        login,
+
+        "distance":
+        float(distance),
+
+        "threshold":
+        threshold
     })
 
 
-# =========================================
-# START
-# =========================================
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
