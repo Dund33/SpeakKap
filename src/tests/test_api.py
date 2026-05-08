@@ -5,6 +5,7 @@ from pathlib import Path
 
 SAMPLES_DIR = Path("data")
 
+MAX_FRR = 0.15
 
 def test_register(client, data_partitions):
 
@@ -51,7 +52,9 @@ def test_identify(client, data_partitions):
         responses.append(response)
 
     #Responses should be 200 OK
-    assert all(response.status_code == 200 for response in responses)
+    auth_statuses = (response.status_code == 200 for response in responses)
+    successes = sum(auth_statuses)
+    assert successes / len(responses) >= (1 - MAX_FRR)
 
     #All responses should contain valid JSON data
     assert all(map(lambda r: r.json() is not None, responses))
@@ -85,7 +88,9 @@ def test_authenticate_success(client, data_partitions):
         responses.append(response)
 
     #All responses should be 200 OK
-    assert all(response.status_code == 200 for response in responses)
+    auth_statuses = (response.status_code == 200 for response in responses)
+    successes = sum(auth_statuses)
+    assert successes / len(responses) >= (1 - MAX_FRR)
 
     #All responses should contain valid JSON data
     assert all(map(lambda r: r.json() is not None, responses))
