@@ -10,6 +10,9 @@ on:
 
 jobs:
   cleanup:
+    # Prevent infinite loops from workflow-created commits
+    if: github.actor != 'github-actions[bot]'
+
     runs-on: ubuntu-latest
 
     permissions:
@@ -60,7 +63,7 @@ jobs:
         run: |
           black .
 
-      - name: Amend existing commit
+      - name: Commit cleanup changes
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
 
@@ -72,9 +75,9 @@ jobs:
 
             git add .
 
-            git commit --amend --no-edit --reset-author=false
+            git commit -m "style: automated Python cleanup"
 
-            git push --force-with-lease
+            git push
           else
             echo "No changes detected"
           fi
