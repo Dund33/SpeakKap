@@ -1,93 +1,124 @@
 from __future__ import annotations
 
+from http.client import responses
 from pathlib import Path
 
-SAMPLES_DIR = Path("samples")
+SAMPLES_DIR = Path("data")
 
+MAX_FRR = 0.15
 
-def test_register(client):
+def test_register(client, data_partitions):
+
+    joor_files = data_partitions['joor_register']
 
     files = [
-        (open(SAMPLES_DIR / "voice1.wav", "rb"), "voice1.wav"),
-        (open(SAMPLES_DIR / "voice2.wav", "rb"), "voice2.wav"),
+        ("files", (filepath.name, open(filepath, "rb"), "audio/wav")) for filepath in joor_files
     ]
 
     data = {
         "username": "pytest_user",
         "password": "secret123",
-        "files": files,
     }
 
     response = client.post(
-        "/register",
+        "http://127.0.0.1:5000/register",
         data=data,
-        content_type="multipart/form-data",
+        files=files,
     )
 
+    #Response should be either 201 Created (if registration is successful) or 409 Conflict (if user already exists)
     assert response.status_code in [201, 409]
 
-    json_data = response.get_json()
+    json_data = response.json()
 
+    #Response should contain valid JSON data
     assert json_data is not None
 
 
-def test_identify(client):
+def test_identify(client, data_partitions):
 
-    with open(SAMPLES_DIR / "test.wav", "rb") as audio:
-        response = client.post(
-            "/identify",
-            data={"file": (audio, "test.wav")},
-            content_type="multipart/form-data",
+    joor_files = data_partitions['joor_login']
+
+    responses = []
+
+    for joor_file in joor_files:
+        with open(joor_file, "rb") as audio:
+            response = client.post(
+                "http://127.0.0.1:5000/identify",
+                files={
+                    "file": (joor_file.name, audio, "audio/wav"),
+                },
         )
+        responses.append(response)
 
-    assert response.status_code in [200, 404]
+    #Responses should be 200 OK
+    auth_statuses = (response.status_code == 200 for response in responses)
+    successes = sum(auth_statuses)
+    assert successes / len(responses) >= (1 - MAX_FRR)
 
-    json_data = response.get_json()
+    #All responses should contain valid JSON data
+    assert all(map(lambda r: r.json() is not None, responses))
 
-    assert json_data is not None
-
-    if response.status_code == 200:
-        assert "login" in json_data
-        assert "xor_hash" in json_data
-
-
-def test_authenticate_success(client):
-
-    with open(SAMPLES_DIR / "test.wav", "rb") as audio:
-        response = client.post(
-            "/authenticate",
-            data={
-                "login": "pytest_user",
-                "password": "secret123",
-                "threshold": 0.5,
-                "file": (audio, "test.wav"),
-            },
-            content_type="multipart/form-data",
-        )
-
-    assert response.status_code in [200, 401, 404]
-
-    json_data = response.get_json()
-
-    assert json_data is not None
+    for response in responses:
+        json_data = response.json()
+        if response.status_code == 200:
+            assert "login" in json_data
+            assert "xor_hash" in json_data
 
 
-def test_authenticate_invalid_password(client):
+def test_authenticate_success(client, data_partitions):
 
-    with open(SAMPLES_DIR / "test.wav", "rb") as audio:
-        response = client.post(
-            "/authenticate",
-            data={
-                "login": "pytest_user",
-                "password": "wrong_password",
-                "threshold": 0.5,
-                "file": (audio, "test.wav"),
-            },
-            content_type="multipart/form-data",
-        )
+    joor_files = data_partitions['joor_login']
 
-    assert response.status_code in [401, 404]
+    responses = []
 
-    json_data = response.get_json()
+    for joor_file in joor_files:
+        with open(joor_file, "rb") as audio:
+            response = client.post(
+                "http://127.0.0.1:5000/authenticate",
+                data={
+                    "login": "pytest_user",
+                    "password": "secret123",
+                    "threshold": 0.5,
+                },
+                files={
+                    "file": (joor_file.name, audio, "audio/wav"),
+                },
+            )
+        responses.append(response)
 
-    assert json_data is not None
+    #All responses should be 200 OK
+    auth_statuses = (response.status_code == 200 for response in responses)
+    successes = sum(auth_statuses)
+    assert successes / len(responses) >= (1 - MAX_FRR)
+
+    #All responses should contain valid JSON data
+    assert all(map(lambda r: r.json() is not None, responses))
+
+
+def test_authenticate_invalid_password(client, data_partitions):
+
+    joor_files = data_partitions['joor_login']
+
+    responses = []
+
+    for joor_file in joor_files:
+        with open(joor_file, "rb") as audio:
+            response = client.post(
+                "http://127.0.0.1:5000/authenticate",
+                data={
+                    "login": "pytest_user",
+                    "password": "wrong_password",
+                    "threshold": 0.5,
+                },
+                files={
+                    "file": (joor_file.name, audio, "audio/wav"),
+                },
+            )
+        responses.append(response)
+
+    #All responses should be either 401 Unauthorized or 404 Not Found, since the password is wrong
+    assert all(response.status_code in [401, 404] for response in responses)
+
+    #All responses should contain valid JSON data, even if the authentication fails
+    assert all(map(lambda r: r.json() is not None, responses))

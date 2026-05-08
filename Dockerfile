@@ -1,11 +1,12 @@
 FROM python:3.14.4-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONPATH=/app
 
 WORKDIR /app
 
 # Environment setup
-RUN apt update && apt install -y git build-essential wget
+RUN apt update && apt install -y git build-essential wget ffmpeg
 RUN apt clean
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir git+https://github.com/wenet-e2e/wespeaker.git
@@ -19,6 +20,6 @@ RUN wget -O voxceleb_resnet293_LM.onnx \
 WORKDIR /app
 
 # Copy the code
-COPY src/ .
+COPY src/ /app/src/
 
-CMD [ "python", "api.py" ]
+CMD ["python", "-m", "src.api"]
