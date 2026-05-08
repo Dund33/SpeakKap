@@ -60,13 +60,6 @@ jobs:
         run: |
           black .
 
-      - name: Run docformatter
-        run: |
-          docformatter \
-            --in-place \
-            --recursive \
-            .
-
       - name: Amend existing commit
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
