@@ -105,7 +105,16 @@ def identify():
 
     profile = redis_store_service.get_profile(login)
 
-    return jsonify({"login": login, "xor_hash": xor_hash(login, profile.password_hash)})
+    combined_hash = bcrypt.hashpw(
+        login.encode(),
+        profile.password_hash.encode(),
+    ).decode()
+
+    return jsonify(
+        {
+            "combined_hash": combined_hash,
+        }
+    )
 
 
 @app.post("/authenticate")
