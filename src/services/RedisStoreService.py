@@ -16,7 +16,7 @@ from redis.exceptions import ResponseError
 
 class RedisStoreService:
     def __init__(
-        self, redis_url: str, embedding_dim: int = 512, index_name: str = "speaker_idx"
+        self, redis_url: str, embedding_dim: int = 256, index_name: str = "speaker_idx"
     ):
 
         self.redis = redis.Redis.from_url(redis_url, decode_responses=False)
@@ -95,10 +95,34 @@ class RedisStoreService:
 
         query = (
             Query(f"*=>[KNN {top_k} @embedding $vec AS score]")
-            .return_field("score")
+            .return_fields("login", "score")
+            .sort_by("score")
             .dialect(2)
         )
 
         return self.redis.ft(self.index_name).search(
             query, query_params={"vec": self._to_bytes(embedding)}
         )
+
+    def clear_profiles(self):
+        """
+        Usuwa wszystkie rekordy speaker:* z Redis.
+        Nie usuwa indeksu RediSearch.
+        
+        Returns:
+            int: liczba usuniętych rekordów.
+        """
+        pattern = "speaker:*"
+        cursor = 0
+        deleted = 0
+
+        while True:
+            cursor, keys = self.redis.scan(cursor=cursor, match=pattern, count=100)
+
+            if keys:
+                deleted += self.redis.delete(*keys)
+
+            if cursor == 0:
+                break
+
+        return deleted

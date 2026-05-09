@@ -16,6 +16,7 @@ from src.utils.MathUtils import MathUtils
 app = Flask(__name__)
 
 UPLOAD_FOLDER = Config.UPLOAD_FOLDER
+THRESHOLD = Config.THRESHOLD
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -78,6 +79,13 @@ def register():
     return jsonify({"message": "registered", "login": login}), 201
 
 
+@app.post("/clear")
+def clear():
+
+    redis_store_service.clear_profiles()
+
+    return jsonify({"message": "database cleared"})
+
 @app.post("/identify")
 def identify():
 
@@ -105,7 +113,16 @@ def identify():
 
     profile = redis_store_service.get_profile(login)
 
-    return jsonify({"login": login, "xor_hash": xor_hash(login, profile.password_hash)})
+    combined_hash = bcrypt.hashpw(
+        login.encode(),
+        profile.password_hash.encode(),
+    ).decode()
+
+    return jsonify(
+        {
+            "combined_hash": combined_hash,
+        }
+    )
 
 
 @app.post("/authenticate")
@@ -117,7 +134,7 @@ def authenticate():
 
     file = request.files.get("file")
 
-    threshold = float(request.form.get("threshold", 0.25))
+    threshold = THRESHOLD
 
     if not login or not password:
         return jsonify({"error": "login and password required"}), 400

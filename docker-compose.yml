@@ -14,8 +14,9 @@ services:
       PYTHONPATH: /app
       REDIS_URL: redis://redis:6379/0
       WESPEAKER_DEVICE: cpu
-      EMBEDDING_DIM: "512"
+      EMBEDDING_DIM: "256"
       UPLOAD_FOLDER: /app/uploads
+      THRESHOLD: "0.4"
 
     depends_on:
       - redis

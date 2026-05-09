@@ -20,9 +20,13 @@ def client():
 @pytest.fixture(scope="session", autouse=True)
 def data_partitions():
     joor_files = list(SAMPLES_DIR.glob("joor*.wav"))
-    np.random.seed()
-    joor_register_files = np.random.choice(joor_files, size=5, replace=False)
+
+    rng = np.random.default_rng()
+
+    joor_register_files = list(rng.choice(joor_files, size=4, replace=False))
+
     joor_login_files = [f for f in joor_files if f not in joor_register_files]
+
     knur_files = list(SAMPLES_DIR.glob("knur*.wav"))
 
     return {
