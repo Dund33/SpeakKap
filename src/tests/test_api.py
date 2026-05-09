@@ -7,7 +7,32 @@ SAMPLES_DIR = Path("data")
 MAX_FRR = 0.15
 
 
+def register_user(client, username: str, password: str, files: list[Path]) -> None:
+    client.post("http://127.0.0.1:5000/clear")
+
+    file_tuples = [
+        ("files", (filepath.name, open(filepath, "rb"), "audio/wav"))
+        for filepath in files
+    ]
+
+    data = {
+        "username": username,
+        "password": password,
+    }
+
+    client.post(
+        "http://127.0.0.1:5000/register",
+        data=data,
+        files=file_tuples,
+    )
+
 def test_register(client, data_partitions):
+    clear_response = client.post("http://127.0.0.1:5000/clear")
+    assert clear_response.status_code == 200
+
+    clear_json = clear_response.json()
+    assert clear_json is not None
+    assert clear_json["message"] == "database cleared"
 
     joor_files = data_partitions["joor_register"]
 
@@ -27,18 +52,20 @@ def test_register(client, data_partitions):
         files=files,
     )
 
-    # Response should be either 201 Created (if registration is successful) or 409 Conflict (if user already exists)
-    assert response.status_code in [201, 409]
+    assert response.status_code == 201
 
     json_data = response.json()
-
-    # Response should contain valid JSON data
     assert json_data is not None
+    assert json_data["message"] == "registered"
+    assert json_data["login"] == "pytest_user"
 
 
 def test_identify(client, data_partitions):
 
     joor_files = data_partitions["joor_login"]
+    joor_register_files = data_partitions["joor_register"]
+
+    register_user(client, "pytest_user", "secret123", joor_register_files)
 
     responses = []
 
