@@ -23,7 +23,7 @@ def data_partitions():
 
     rng = np.random.default_rng()
 
-    joor_register_files = list(rng.choice(joor_files, size=4, replace=False))
+    joor_register_files = list(rng.choice(joor_files, size=8, replace=False))
 
     joor_login_files = [f for f in joor_files if f not in joor_register_files]
 
