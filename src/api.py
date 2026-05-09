@@ -86,6 +86,7 @@ def clear():
 
     return jsonify({"message": "database cleared"})
 
+
 @app.post("/identify")
 def identify():
 

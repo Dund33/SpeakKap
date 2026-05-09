@@ -26,6 +26,7 @@ def register_user(client, username: str, password: str, files: list[Path]) -> No
         files=file_tuples,
     )
 
+
 def test_register(client, data_partitions):
     clear_response = client.post("http://127.0.0.1:5000/clear")
     assert clear_response.status_code == 200
@@ -147,6 +148,7 @@ def test_authenticate_invalid_password(client, data_partitions):
 
     # All responses should contain valid JSON data, even if the authentication fails
     assert all(map(lambda r: r.json() is not None, responses))
+
 
 MAX_FAR = 0.05
 
