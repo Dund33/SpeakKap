@@ -16,6 +16,7 @@ services:
       WESPEAKER_DEVICE: cpu
       EMBEDDING_DIM: "256"
       UPLOAD_FOLDER: /app/uploads
+      THRESHOLD: "0.3"
 
     depends_on:
       - redis

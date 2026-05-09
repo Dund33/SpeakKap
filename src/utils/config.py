@@ -11,3 +11,5 @@ class Config:
     EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "256"))
 
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
+
+    THRESHOLD = float(os.getenv("THRESHOLD", "0.15"))

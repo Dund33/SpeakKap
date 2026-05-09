@@ -106,7 +106,6 @@ def test_authenticate_success(client, data_partitions):
                 data={
                     "login": "pytest_user",
                     "password": "secret123",
-                    "threshold": 0.5,
                 },
                 files={
                     "file": (joor_file.name, audio, "audio/wav"),

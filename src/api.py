@@ -16,6 +16,7 @@ from src.utils.MathUtils import MathUtils
 app = Flask(__name__)
 
 UPLOAD_FOLDER = Config.UPLOAD_FOLDER
+THRESHOLD = Config.THRESHOLD
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -133,7 +134,7 @@ def authenticate():
 
     file = request.files.get("file")
 
-    threshold = float(request.form.get("threshold", 0.25))
+    threshold = THRESHOLD
 
     if not login or not password:
         return jsonify({"error": "login and password required"}), 400
