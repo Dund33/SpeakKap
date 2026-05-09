@@ -13,9 +13,7 @@ class WeSpeakerService:
         device: str = "cpu",
     ):
         providers = (
-            ["CUDAExecutionProvider"]
-            if device == "cuda"
-            else ["CPUExecutionProvider"]
+            ["CUDAExecutionProvider"] if device == "cuda" else ["CPUExecutionProvider"]
         )
 
         self.session = ort.InferenceSession(
