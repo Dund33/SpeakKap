@@ -78,6 +78,13 @@ def register():
     return jsonify({"message": "registered", "login": login}), 201
 
 
+@app.post("/clear")
+def clear():
+
+    redis_store_service.clear_profiles()
+
+    return jsonify({"message": "database cleared"})
+
 @app.post("/identify")
 def identify():
 

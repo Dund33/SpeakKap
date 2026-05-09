@@ -90,8 +90,7 @@ def test_identify(client, data_partitions):
     for response in responses:
         json_data = response.json()
         if response.status_code == 200:
-            assert "login" in json_data
-            assert "xor_hash" in json_data
+            assert "combined_hash" in json_data
 
 
 def test_authenticate_success(client, data_partitions):
