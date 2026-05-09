@@ -135,7 +135,6 @@ def test_authenticate_invalid_password(client, data_partitions):
                 data={
                     "login": "pytest_user",
                     "password": "wrong_password",
-                    "threshold": 0.5,
                 },
                 files={
                     "file": (joor_file.name, audio, "audio/wav"),
@@ -148,3 +147,38 @@ def test_authenticate_invalid_password(client, data_partitions):
 
     # All responses should contain valid JSON data, even if the authentication fails
     assert all(map(lambda r: r.json() is not None, responses))
+
+MAX_FAR = 0.05
+
+
+def test_authenticate_wrong_speaker(client, data_partitions):
+    knur_files = data_partitions["knur"]
+    joor_register_files = data_partitions["joor_register"]
+
+    clear_response = client.post("http://127.0.0.1:5000/clear")
+    assert clear_response.status_code == 200
+
+    register_user(client, "pytest_user", "secret123", joor_register_files)
+
+    responses = []
+
+    for knur_file in knur_files:
+        with open(knur_file, "rb") as audio:
+            response = client.post(
+                "http://127.0.0.1:5000/authenticate",
+                data={
+                    "login": "pytest_user",
+                    "password": "secret123",
+                },
+                files={
+                    "file": (knur_file.name, audio, "audio/wav"),
+                },
+            )
+        responses.append(response)
+
+    accepted = sum(response.status_code == 200 for response in responses)
+    far = accepted / len(responses)
+
+    assert far <= MAX_FAR
+
+    assert all(response.json() is not None for response in responses)
