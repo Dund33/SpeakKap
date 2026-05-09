@@ -108,7 +108,7 @@ class RedisStoreService:
         """
         Usuwa wszystkie rekordy speaker:* z Redis.
         Nie usuwa indeksu RediSearch.
-        
+
         Returns:
             int: liczba usuniętych rekordów.
         """
