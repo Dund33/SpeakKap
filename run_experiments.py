@@ -13,11 +13,11 @@ from experiments.dataset import SUPPORTED_AUDIO, SpeakerSplit, build_splits, wri
 from experiments.metrics import compute_metrics
 
 
-PASSWORD = "p2-experiment-password"
+PASSWORD = "password"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run P2 speaker-authentication experiments.")
+    parser = argparse.ArgumentParser(description="Run speaker-authentication experiments.")
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--api-url", default="http://127.0.0.1:5000")
     parser.add_argument("--output-dir", type=Path, default=Path("experiments/results"))
@@ -46,16 +46,23 @@ def main() -> None:
 
     client = SpeakKapClient(args.api_url)
     try:
+        # zad 1
         enroll_users(client, splits)
         trials = make_balanced_trials(splits, args.baseline_trials, rng)
         run_experiment(client, "01_baseline", trials, args.output_dir)
+        # zad 2
         run_amplitude(client, trials[:500], args.output_dir, rng)
+        # zad 3
         run_downsampling(client, trials[:200], args.output_dir)
+        # zad 4
         run_gaussian_noise(client, trials[:100], args.output_dir, args.seed)
+        # zad 5
         if args.background_root:
             run_background_noise(client, trials[:100], args.output_dir, args.background_root, rng)
+        # zad 6
         if not args.skip_codec:
             run_codec(client, trials[:100], args.output_dir)
+        # zad 7
         if args.rir_root:
             run_reverb(client, trials[:100], args.output_dir, args.rir_root, rng)
     finally:

@@ -1,14 +1,14 @@
 # SpeakKap
 Yet another speaker recognition system
 
-## P2 dataset and experiments
+## dataset and experiments
 
-The P2 experiment harness lives in `experiments/`. It uses the existing Flask API:
+The experiment harness lives in `experiments/`. It uses the existing Flask API:
 
 1. Put a speaker dataset on disk as one directory per speaker:
 
    ```text
-   data/p2_dataset/
+   data/dataset/
      speaker_001/*.wav
      speaker_002/*.wav
      ...
@@ -26,8 +26,8 @@ The P2 experiment harness lives in `experiments/`. It uses the existing Flask AP
 3. Run the experiments:
 
    ```powershell
-   python -m experiments.run_p2_experiments `
-     --dataset-root data/p2_dataset `
+   python -m experiments.run_experiments `
+     --dataset-root data/dataset `
      --background-root data/background_noise `
      --rir-root data/room_impulse_responses `
      --output-dir experiments/results
