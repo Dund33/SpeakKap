@@ -2,6 +2,9 @@ flask
 pyjwt 
 redis
 bcrypt
-numpy
+numpy<2
 onnxruntime
 torchcodec
+requests
+torch
+torchaudio
